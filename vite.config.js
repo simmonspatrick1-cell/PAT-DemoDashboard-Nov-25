@@ -14,8 +14,25 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
-    sourcemap: false,
+    // Output directory for Suitelet deployment
+    outDir: 'dist-suitelet',
+    // Optimize for NetSuite hosting
+    rollupOptions: {
+      output: {
+        // Single file output for easier NetSuite hosting
+        manualChunks: undefined,
+        entryFileNames: 'assets/dashboard.js',
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name].[ext]'
+      }
+    },
+    // Inline small assets to reduce HTTP requests
+    assetsInlineLimit: 4096,
+    // Minify for production
+    minify: 'terser',
+    sourcemap: false
   },
+  // Use relative paths for NetSuite File Cabinet
+  base: './',
 })
 
