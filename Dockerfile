@@ -1,0 +1,44 @@
+# Dockerfile for Node.js Backend (NetSuite API Server)
+FROM node:20-alpine
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+# Create app user for security
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files first for better caching
+COPY --chown=nodejs:nodejs package*.json ./
+
+# Install dependencies
+# Use npm install instead of npm ci to allow dependency resolution for esbuild conflicts
+RUN npm install --omit=dev && npm cache clean --force
+
+# Copy application code
+COPY --chown=nodejs:nodejs . .
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Expose port
+EXPOSE 3001
+
+# Environment variables with defaults
+# Note: ANTHROPIC_API_KEY must be set via Railway environment variables
+ENV PORT=3001
+ENV NODE_ENV=production
+ENV NETSUITE_ACCOUNT_ID=demo
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:${PORT}/api/health || exit 1
+
+# Start the application
+CMD ["node", "backend-server.js"]

@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Production Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: netsuite-backend-prod
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    volumes:
+      - ./logs:/app/logs
+      - ./.env.production:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - netsuite-prod
+    depends_on:
+      - redis
+
+  # Production Frontend
+  frontend:
+    build:
+      context: ./netsuite-dashboard
+      dockerfile: Dockerfile
+    container_name: netsuite-frontend-prod
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=http://backend:3001
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - netsuite-prod
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: netsuite-redis-prod
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_prod_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - netsuite-prod
+    command: redis-server --appendonly yes
+
+networks:
+  netsuite-prod:
+    driver: bridge
+
+volumes:
+  redis_prod_data:
+    driver: local
